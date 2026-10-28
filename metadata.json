@@ -1,0 +1,10 @@
+{
+  "name": "Remix DropAid — by ayushEdit",
+  "description": "Professional emergency ambulance booking platform with live GPS routing, 5-second hold confirmation, interactive Leaflet hospital map, synchronized operator/driver dispatch, 3D telemetry viewer, and AI scene video generation.",
+  "requestFramePermissions": [
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
