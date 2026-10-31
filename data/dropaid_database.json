@@ -1,0 +1,1246 @@
+{
+  "version": 1,
+  "lastUpdated": "2026-10-31T04:45:20.806Z",
+  "bookings": [
+    {
+      "id": "bk-1793421898337",
+      "trackingCode": "DA-5856",
+      "createdAt": "2026-10-31T04:44:59.531Z",
+      "patientName": "Sunita Rao",
+      "patientPhone": "+91 98111 22334",
+      "bookingFor": "self",
+      "caseAccessKey": "dd21ed33da7f",
+      "patientNotes": "[Quick 5s Hold Dispatch] Acute respiratory distress",
+      "issueCategory": "general",
+      "pickupAddress": "Karol Bagh Metro Station, New Delhi",
+      "pickupCoords": {
+        "lat": 28.6514,
+        "lng": 77.1907
+      },
+      "dropoffAddress": "Sir Ganga Ram Hospital, Rajinder Nagar, New Delhi",
+      "dropoffCoords": {
+        "lat": 28.6385,
+        "lng": 77.1895
+      },
+      "destinationHospitalId": "hosp-delhi-1",
+      "equipmentRequested": [
+        "o2"
+      ],
+      "stage": "transporting",
+      "assignedUnitId": "amb-gangaram-1",
+      "etaMinutes": 2,
+      "distanceKm": 1.4,
+      "routePolyline": [
+        [
+          28.639136,
+          77.188248
+        ],
+        [
+          28.638393,
+          77.187758
+        ],
+        [
+          28.638443,
+          77.187654
+        ],
+        [
+          28.638653,
+          77.187787
+        ],
+        [
+          28.639273,
+          77.188213
+        ],
+        [
+          28.639331,
+          77.188253
+        ],
+        [
+          28.64056,
+          77.189156
+        ],
+        [
+          28.641845,
+          77.190034
+        ],
+        [
+          28.642103,
+          77.190212
+        ],
+        [
+          28.643034,
+          77.190859
+        ],
+        [
+          28.643719,
+          77.191369
+        ],
+        [
+          28.644002,
+          77.191533
+        ],
+        [
+          28.644254,
+          77.191543
+        ],
+        [
+          28.644302,
+          77.191544
+        ],
+        [
+          28.644505,
+          77.19149
+        ],
+        [
+          28.644665,
+          77.191461
+        ],
+        [
+          28.64501,
+          77.1914
+        ],
+        [
+          28.645593,
+          77.191844
+        ],
+        [
+          28.645873,
+          77.192082
+        ],
+        [
+          28.645953,
+          77.192145
+        ],
+        [
+          28.645967,
+          77.192161
+        ],
+        [
+          28.646168,
+          77.192328
+        ],
+        [
+          28.646364,
+          77.192493
+        ],
+        [
+          28.646816,
+          77.192846
+        ],
+        [
+          28.647317,
+          77.192082
+        ],
+        [
+          28.647351,
+          77.192031
+        ],
+        [
+          28.648137,
+          77.19061
+        ],
+        [
+          28.648835,
+          77.189381
+        ],
+        [
+          28.649223,
+          77.189659
+        ],
+        [
+          28.64945,
+          77.18982
+        ],
+        [
+          28.649705,
+          77.190042
+        ],
+        [
+          28.649719,
+          77.190032
+        ],
+        [
+          28.649735,
+          77.190028
+        ],
+        [
+          28.649751,
+          77.19003
+        ],
+        [
+          28.649768,
+          77.190041
+        ],
+        [
+          28.649779,
+          77.190058
+        ],
+        [
+          28.649783,
+          77.190072
+        ],
+        [
+          28.649783,
+          77.190086
+        ],
+        [
+          28.64985,
+          77.190127
+        ],
+        [
+          28.649944,
+          77.190192
+        ],
+        [
+          28.650049,
+          77.190278
+        ],
+        [
+          28.65014,
+          77.190343
+        ],
+        [
+          28.650227,
+          77.190407
+        ],
+        [
+          28.650323,
+          77.190475
+        ],
+        [
+          28.650412,
+          77.190533
+        ],
+        [
+          28.650511,
+          77.190612
+        ],
+        [
+          28.650515,
+          77.190619
+        ],
+        [
+          28.650671,
+          77.190721
+        ],
+        [
+          28.650824,
+          77.190842
+        ],
+        [
+          28.650931,
+          77.190923
+        ],
+        [
+          28.651041,
+          77.191002
+        ],
+        [
+          28.651142,
+          77.191072
+        ],
+        [
+          28.651357,
+          77.19067
+        ]
+      ],
+      "currentVehiclePosition": [
+        28.6385,
+        77.1895
+      ],
+      "priceEst": 184,
+      "documents": [],
+      "isDoctorConfirmedByHospital": true,
+      "confirmedDoctor": {
+        "id": "doc-aiims-1",
+        "name": "Dr. Rajesh V. Mehra",
+        "role": "Chief of Emergency & Trauma Resuscitation",
+        "specialty": "Trauma & Acute Care Surgery",
+        "experienceYears": 18,
+        "qualifications": "MBBS, MS (General Surgery), MCh (Trauma Surgery, AIIMS)",
+        "registrationNumber": "DMC/R/14290 (Delhi Medical Council)",
+        "isConfirmedByHospital": true,
+        "onDutyShift": "Day & Immediate Emergency Shift"
+      },
+      "treatmentTeam": [
+        {
+          "name": "Dr. Rajesh V. Mehra",
+          "role": "Attending Trauma Surgeon",
+          "specialty": "Apex Resuscitation"
+        },
+        {
+          "name": "Dr. Priya Swaminathan",
+          "role": "Emergency Physician",
+          "specialty": "Acute Triage"
+        },
+        {
+          "name": "Nurse Ankit Rao, B.Sc Nursing",
+          "role": "Critical Care Lead",
+          "specialty": "Advanced Airway & Vascular Access"
+        }
+      ],
+      "treatmentProcedure": {
+        "assignedBayOrRoom": "AIIMS Trauma Resuscitation Bay 1",
+        "triageLevel": "Level 1 - Resuscitation",
+        "preparedEquipment": [
+          "Cardiac Telemetry Monitor",
+          "Advanced Airway Cart",
+          "Rapid Infuser"
+        ],
+        "confirmedAt": "2026-10-31T04:44:59.531Z"
+      },
+      "preArrivalAlertSent": false,
+      "preArrivalConsentGiven": true,
+      "stageTimestamps": {
+        "requested": "2026-10-31T04:44:59.531Z",
+        "accepted": "2026-10-31T04:44:59.531Z",
+        "dispatched": "2026-10-31T04:44:59.531Z"
+      },
+      "isSimulated": false,
+      "telegramNotificationStatus": "simulated",
+      "statusHistory": [
+        {
+          "stage": "pending",
+          "timestamp": "2026-10-31T04:44:59.531Z",
+          "note": "Emergency dispatch request registered (Self)"
+        },
+        {
+          "stage": "en_route_pickup",
+          "timestamp": "2026-10-31T04:44:59.531Z",
+          "note": "Auto-dispatched Unit CarePoint 104 - Sir Ganga Ram (Driver: Sanjay Rawat) via proximity algorithm"
+        },
+        {
+          "stage": "on_scene",
+          "timestamp": "2026-10-31T04:45:08.063Z",
+          "note": "Stage transitioned to on_scene"
+        },
+        {
+          "stage": "transporting",
+          "timestamp": "2026-10-31T04:45:20.805Z",
+          "note": "Stage transitioned to transporting"
+        }
+      ]
+    },
+    {
+      "id": "bk-1793420605367",
+      "trackingCode": "DA-3895",
+      "createdAt": "2026-10-31T04:23:26.870Z",
+      "patientName": "Aarav Sharma",
+      "patientPhone": "+91 98765 43210",
+      "patientEmail": "aarav.sharma@example.com",
+      "bloodGroup": "O+",
+      "bookingFor": "someone_else",
+      "relationship": "Colleague",
+      "callerName": "Vikram Malhotra",
+      "callerPhone": "+91 91234 56789",
+      "caseAccessKey": "SEC-TEST-9988",
+      "patientNotes": "[Quick 5s Hold Dispatch] Sudden chest pressure and shortness of breath",
+      "issueCategory": "cardiac",
+      "pickupAddress": "Connaught Place, Inner Circle, New Delhi",
+      "pickupCoords": {
+        "lat": 28.6315,
+        "lng": 77.2167
+      },
+      "dropoffAddress": "AIIMS New Delhi, Ansari Nagar",
+      "dropoffCoords": {
+        "lat": 28.5672,
+        "lng": 77.21
+      },
+      "destinationHospitalId": "hosp-delhi-1",
+      "equipmentRequested": [
+        "o2",
+        "defib"
+      ],
+      "stage": "at_hospital",
+      "assignedUnitId": "amb-gangaram-1",
+      "etaMinutes": 5,
+      "distanceKm": 5.1,
+      "routePolyline": [
+        [
+          28.639136,
+          77.188248
+        ],
+        [
+          28.638393,
+          77.187758
+        ],
+        [
+          28.638171,
+          77.187526
+        ],
+        [
+          28.637588,
+          77.187137
+        ],
+        [
+          28.637432,
+          77.187033
+        ],
+        [
+          28.637382,
+          77.186999
+        ],
+        [
+          28.63731,
+          77.186939
+        ],
+        [
+          28.636702,
+          77.186522
+        ],
+        [
+          28.636482,
+          77.186371
+        ],
+        [
+          28.636298,
+          77.186239
+        ],
+        [
+          28.636241,
+          77.186198
+        ],
+        [
+          28.636009,
+          77.186022
+        ],
+        [
+          28.635932,
+          77.185973
+        ],
+        [
+          28.635754,
+          77.185855
+        ],
+        [
+          28.635488,
+          77.185692
+        ],
+        [
+          28.635238,
+          77.186159
+        ],
+        [
+          28.635143,
+          77.186352
+        ],
+        [
+          28.634941,
+          77.186857
+        ],
+        [
+          28.634755,
+          77.187431
+        ],
+        [
+          28.634574,
+          77.188052
+        ],
+        [
+          28.634288,
+          77.189032
+        ],
+        [
+          28.634202,
+          77.18939
+        ],
+        [
+          28.634226,
+          77.189455
+        ],
+        [
+          28.634235,
+          77.189526
+        ],
+        [
+          28.634227,
+          77.189597
+        ],
+        [
+          28.634204,
+          77.189663
+        ],
+        [
+          28.63417,
+          77.189715
+        ],
+        [
+          28.634126,
+          77.189756
+        ],
+        [
+          28.634075,
+          77.189785
+        ],
+        [
+          28.634019,
+          77.189799
+        ],
+        [
+          28.633969,
+          77.189798
+        ],
+        [
+          28.633921,
+          77.189786
+        ],
+        [
+          28.63387,
+          77.189764
+        ],
+        [
+          28.633824,
+          77.189717
+        ],
+        [
+          28.633626,
+          77.189805
+        ],
+        [
+          28.630457,
+          77.190795
+        ],
+        [
+          28.629822,
+          77.191059
+        ],
+        [
+          28.629293,
+          77.191386
+        ],
+        [
+          28.628793,
+          77.191878
+        ],
+        [
+          28.6284,
+          77.192463
+        ],
+        [
+          28.62717,
+          77.194555
+        ],
+        [
+          28.627134,
+          77.194669
+        ],
+        [
+          28.6271,
+          77.194776
+        ],
+        [
+          28.627065,
+          77.194887
+        ],
+        [
+          28.627039,
+          77.195062
+        ],
+        [
+          28.627063,
+          77.195097
+        ],
+        [
+          28.627071,
+          77.195136
+        ],
+        [
+          28.627048,
+          77.195269
+        ],
+        [
+          28.627023,
+          77.195357
+        ],
+        [
+          28.62698,
+          77.195436
+        ],
+        [
+          28.626919,
+          77.195497
+        ],
+        [
+          28.626857,
+          77.19558
+        ],
+        [
+          28.6267,
+          77.195772
+        ],
+        [
+          28.626559,
+          77.196026
+        ],
+        [
+          28.626213,
+          77.196633
+        ],
+        [
+          28.626162,
+          77.196716
+        ],
+        [
+          28.626144,
+          77.196745
+        ],
+        [
+          28.625328,
+          77.198159
+        ],
+        [
+          28.624591,
+          77.19937
+        ],
+        [
+          28.624516,
+          77.199494
+        ],
+        [
+          28.624307,
+          77.199852
+        ],
+        [
+          28.624212,
+          77.20005
+        ],
+        [
+          28.62422,
+          77.200161
+        ],
+        [
+          28.6242,
+          77.200269
+        ],
+        [
+          28.624275,
+          77.200506
+        ],
+        [
+          28.624542,
+          77.201175
+        ],
+        [
+          28.624604,
+          77.201314
+        ],
+        [
+          28.624725,
+          77.201582
+        ],
+        [
+          28.624784,
+          77.201706
+        ],
+        [
+          28.625305,
+          77.202872
+        ],
+        [
+          28.625316,
+          77.202897
+        ],
+        [
+          28.625416,
+          77.203119
+        ],
+        [
+          28.626198,
+          77.20486
+        ],
+        [
+          28.626538,
+          77.205616
+        ],
+        [
+          28.626589,
+          77.205722
+        ],
+        [
+          28.62666,
+          77.205819
+        ],
+        [
+          28.626663,
+          77.205824
+        ],
+        [
+          28.626731,
+          77.20587
+        ],
+        [
+          28.626851,
+          77.205941
+        ],
+        [
+          28.626914,
+          77.205931
+        ],
+        [
+          28.626978,
+          77.205929
+        ],
+        [
+          28.627042,
+          77.205933
+        ],
+        [
+          28.627104,
+          77.205946
+        ],
+        [
+          28.627166,
+          77.205965
+        ],
+        [
+          28.627225,
+          77.205992
+        ],
+        [
+          28.627306,
+          77.206042
+        ],
+        [
+          28.62738,
+          77.206105
+        ],
+        [
+          28.627445,
+          77.20618
+        ],
+        [
+          28.627499,
+          77.206266
+        ],
+        [
+          28.627542,
+          77.206359
+        ],
+        [
+          28.627572,
+          77.206459
+        ],
+        [
+          28.627589,
+          77.206562
+        ],
+        [
+          28.627595,
+          77.206617
+        ],
+        [
+          28.627582,
+          77.206772
+        ],
+        [
+          28.627558,
+          77.206874
+        ],
+        [
+          28.627521,
+          77.20697
+        ],
+        [
+          28.627473,
+          77.20706
+        ],
+        [
+          28.627413,
+          77.20714
+        ],
+        [
+          28.627343,
+          77.207209
+        ],
+        [
+          28.627302,
+          77.207242
+        ],
+        [
+          28.627258,
+          77.207271
+        ],
+        [
+          28.627212,
+          77.207295
+        ],
+        [
+          28.627165,
+          77.207316
+        ],
+        [
+          28.627116,
+          77.207332
+        ],
+        [
+          28.627067,
+          77.207343
+        ],
+        [
+          28.627017,
+          77.20735
+        ],
+        [
+          28.626966,
+          77.207352
+        ],
+        [
+          28.626916,
+          77.20735
+        ],
+        [
+          28.626866,
+          77.207342
+        ],
+        [
+          28.626816,
+          77.207331
+        ],
+        [
+          28.626768,
+          77.207314
+        ],
+        [
+          28.626692,
+          77.207352
+        ],
+        [
+          28.626622,
+          77.207397
+        ],
+        [
+          28.626595,
+          77.20742
+        ],
+        [
+          28.626559,
+          77.207455
+        ],
+        [
+          28.626514,
+          77.207513
+        ],
+        [
+          28.626468,
+          77.207597
+        ],
+        [
+          28.625897,
+          77.208579
+        ],
+        [
+          28.625656,
+          77.208993
+        ],
+        [
+          28.625592,
+          77.209104
+        ],
+        [
+          28.625283,
+          77.209634
+        ],
+        [
+          28.625168,
+          77.209833
+        ],
+        [
+          28.625114,
+          77.209926
+        ],
+        [
+          28.624981,
+          77.210154
+        ],
+        [
+          28.624695,
+          77.210638
+        ],
+        [
+          28.62462,
+          77.210772
+        ],
+        [
+          28.624326,
+          77.211296
+        ],
+        [
+          28.624306,
+          77.211331
+        ],
+        [
+          28.624121,
+          77.211656
+        ],
+        [
+          28.624027,
+          77.211822
+        ],
+        [
+          28.623976,
+          77.211908
+        ],
+        [
+          28.623798,
+          77.212212
+        ],
+        [
+          28.62375,
+          77.212299
+        ],
+        [
+          28.623741,
+          77.212391
+        ],
+        [
+          28.623759,
+          77.212488
+        ],
+        [
+          28.623803,
+          77.212586
+        ],
+        [
+          28.623825,
+          77.212693
+        ],
+        [
+          28.623823,
+          77.212803
+        ],
+        [
+          28.623799,
+          77.21291
+        ],
+        [
+          28.62387,
+          77.213054
+        ],
+        [
+          28.623919,
+          77.213112
+        ],
+        [
+          28.623976,
+          77.213156
+        ],
+        [
+          28.624195,
+          77.213315
+        ],
+        [
+          28.624304,
+          77.213394
+        ],
+        [
+          28.624387,
+          77.213454
+        ],
+        [
+          28.624783,
+          77.213741
+        ],
+        [
+          28.62488,
+          77.213811
+        ],
+        [
+          28.625114,
+          77.213981
+        ],
+        [
+          28.625437,
+          77.214215
+        ],
+        [
+          28.625522,
+          77.214277
+        ],
+        [
+          28.626072,
+          77.214641
+        ],
+        [
+          28.626518,
+          77.214937
+        ],
+        [
+          28.626539,
+          77.214955
+        ],
+        [
+          28.626687,
+          77.215081
+        ],
+        [
+          28.626886,
+          77.215251
+        ],
+        [
+          28.62694,
+          77.215296
+        ],
+        [
+          28.627024,
+          77.215359
+        ],
+        [
+          28.62708,
+          77.215405
+        ],
+        [
+          28.627279,
+          77.215576
+        ],
+        [
+          28.627518,
+          77.215768
+        ],
+        [
+          28.628381,
+          77.216396
+        ],
+        [
+          28.628826,
+          77.216723
+        ],
+        [
+          28.629369,
+          77.217123
+        ],
+        [
+          28.630081,
+          77.217673
+        ],
+        [
+          28.630122,
+          77.217698
+        ],
+        [
+          28.630134,
+          77.217705
+        ],
+        [
+          28.63019,
+          77.217728
+        ],
+        [
+          28.630248,
+          77.217742
+        ],
+        [
+          28.630307,
+          77.217747
+        ],
+        [
+          28.630367,
+          77.217741
+        ],
+        [
+          28.630425,
+          77.217726
+        ],
+        [
+          28.630481,
+          77.217702
+        ],
+        [
+          28.630532,
+          77.217668
+        ],
+        [
+          28.630852,
+          77.217336
+        ],
+        [
+          28.631139,
+          77.217031
+        ],
+        [
+          28.631298,
+          77.216873
+        ],
+        [
+          28.631429,
+          77.216742
+        ],
+        [
+          28.631504,
+          77.216717
+        ]
+      ],
+      "currentVehiclePosition": [
+        28.6385,
+        77.1895
+      ],
+      "priceEst": 242,
+      "documents": [],
+      "isDoctorConfirmedByHospital": true,
+      "confirmedDoctor": {
+        "id": "doc-aiims-1",
+        "name": "Dr. Rajesh V. Mehra",
+        "role": "Chief of Emergency & Trauma Resuscitation",
+        "specialty": "Trauma & Acute Care Surgery",
+        "experienceYears": 18,
+        "qualifications": "MBBS, MS (General Surgery), MCh (Trauma Surgery, AIIMS)",
+        "registrationNumber": "DMC/R/14290 (Delhi Medical Council)",
+        "isConfirmedByHospital": true,
+        "onDutyShift": "Day & Immediate Emergency Shift"
+      },
+      "treatmentTeam": [
+        {
+          "name": "Dr. Rajesh V. Mehra",
+          "role": "Attending Trauma Surgeon",
+          "specialty": "Apex Resuscitation"
+        },
+        {
+          "name": "Dr. Priya Swaminathan",
+          "role": "Emergency Physician",
+          "specialty": "Acute Triage"
+        },
+        {
+          "name": "Nurse Ankit Rao, B.Sc Nursing",
+          "role": "Critical Care Lead",
+          "specialty": "Advanced Airway & Vascular Access"
+        }
+      ],
+      "treatmentProcedure": {
+        "assignedBayOrRoom": "AIIMS Trauma Resuscitation Bay 2",
+        "triageLevel": "Level 1 - Resuscitation",
+        "preparedEquipment": [
+          "Cardiac Telemetry Monitor",
+          "Advanced Airway Cart",
+          "Rapid Infuser"
+        ],
+        "confirmedAt": "2026-10-31T04:23:26.870Z"
+      },
+      "preArrivalAlertSent": true,
+      "preArrivalConsentGiven": true,
+      "stageTimestamps": {
+        "requested": "2026-10-31T04:23:26.870Z",
+        "accepted": "2026-10-31T04:23:26.870Z",
+        "dispatched": "2026-10-31T04:23:26.870Z"
+      },
+      "isSimulated": false,
+      "telegramNotificationStatus": "simulated",
+      "statusHistory": [
+        {
+          "stage": "pending",
+          "timestamp": "2026-10-31T04:23:26.870Z",
+          "note": "Emergency dispatch request registered (Booked for Colleague)"
+        },
+        {
+          "stage": "en_route_pickup",
+          "timestamp": "2026-10-31T04:23:26.870Z",
+          "note": "Auto-dispatched Unit CarePoint 104 - Sir Ganga Ram (Driver: Sanjay Rawat) via proximity algorithm"
+        },
+        {
+          "stage": "at_hospital",
+          "timestamp": "2026-10-31T04:23:43.989Z",
+          "note": "Hospital handover confirmed by Dr. On-Duty Trauma Lead at Resuscitation Bay (Intake RN: Triage Staff)"
+        },
+        {
+          "stage": "at_hospital",
+          "timestamp": "2026-10-31T04:41:55.745Z",
+          "note": "Pre-arrival trauma alert dispatched to ER desk (Blood: B Positive (B+), ETA: ~5m)"
+        },
+        {
+          "stage": "at_hospital",
+          "timestamp": "2026-10-31T04:41:55.887Z",
+          "note": "Pre-arrival trauma alert dispatched to ER desk (Blood: B+, ETA: ~5m)"
+        }
+      ],
+      "hospitalHandoverConfirmed": true,
+      "hospitalHandoverAt": "2026-10-31T04:23:43.989Z",
+      "hospitalIntakeNurse": "Triage Intake RN",
+      "preArrivalSentAt": "2026-10-31T04:41:55.887Z"
+    }
+  ],
+  "auditEvents": [
+    {
+      "id": "audit-1793421920806-101",
+      "timestamp": "2026-10-31T04:45:20.806Z",
+      "bookingId": "bk-1793421898337",
+      "action": "STAGE_TRANSITION",
+      "actor": "operator",
+      "details": "Trip stage changed to transporting",
+      "metadata": {
+        "stage": "transporting",
+        "assignedUnitId": "amb-gangaram-1"
+      }
+    },
+    {
+      "id": "audit-1793421908064-62",
+      "timestamp": "2026-10-31T04:45:08.064Z",
+      "bookingId": "bk-1793421898337",
+      "action": "STAGE_TRANSITION",
+      "actor": "operator",
+      "details": "Trip stage changed to on_scene",
+      "metadata": {
+        "stage": "on_scene",
+        "assignedUnitId": "amb-gangaram-1"
+      }
+    },
+    {
+      "id": "audit-1793421899531-68",
+      "timestamp": "2026-10-31T04:44:59.532Z",
+      "bookingId": "bk-1793421898337",
+      "action": "BOOKING_CREATED",
+      "actor": "patient",
+      "details": "Booking DA-5856 registered via emergency_hold (self). Nearest unit: CarePoint 104 - Sir Ganga Ram",
+      "metadata": {
+        "patientName": "Sunita Rao",
+        "patientPhone": "+91 98111 22334",
+        "bookingFor": "self",
+        "issueCategory": "general",
+        "assignedUnit": "CarePoint 104 - Sir Ganga Ram"
+      }
+    },
+    {
+      "id": "audit-1793421715887-996",
+      "timestamp": "2026-10-31T04:41:55.887Z",
+      "bookingId": "bk-1793420605367",
+      "action": "PRE_ARRIVAL_ALERT_SENT",
+      "actor": "patient",
+      "details": "Pre-arrival trauma alert sent with consent",
+      "metadata": {}
+    },
+    {
+      "id": "audit-1793421715746-707",
+      "timestamp": "2026-10-31T04:41:55.746Z",
+      "bookingId": "bk-1793420605367",
+      "action": "PRE_ARRIVAL_ALERT_SENT",
+      "actor": "patient",
+      "details": "Pre-arrival trauma alert sent with consent",
+      "metadata": {
+        "bloodType": "B Positive (B+)",
+        "etaMinutes": 5
+      }
+    },
+    {
+      "id": "audit-1793420623990-320",
+      "timestamp": "2026-10-31T04:23:43.990Z",
+      "bookingId": "bk-1793420605367",
+      "action": "HOSPITAL_HANDOVER_CONFIRMED",
+      "actor": "hospital",
+      "details": "Handover confirmed by Dr. On-Duty Lead at ER Trauma Bay",
+      "metadata": {}
+    },
+    {
+      "id": "audit-1793420606871-918",
+      "timestamp": "2026-10-31T04:23:26.871Z",
+      "bookingId": "bk-1793420605367",
+      "action": "BOOKING_CREATED",
+      "actor": "patient",
+      "details": "Booking DA-3895 registered via emergency_hold (for Colleague). Nearest unit: CarePoint 104 - Sir Ganga Ram",
+      "metadata": {
+        "patientName": "Aarav Sharma",
+        "patientPhone": "+91 98765 43210",
+        "bookingFor": "someone_else",
+        "issueCategory": "cardiac",
+        "assignedUnit": "CarePoint 104 - Sir Ganga Ram"
+      }
+    }
+  ],
+  "telegramLinks": {}
+}

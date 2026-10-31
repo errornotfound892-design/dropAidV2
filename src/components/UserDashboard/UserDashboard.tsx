@@ -10,12 +10,13 @@ import {
   BookingDocument,
   TripStage,
   EmergencyCategory,
-  HospitalDoctor
+  HospitalDoctor,
+  BookingSubmissionData
 } from '../../types/index.ts';
 import { HOSPITALS, LANDMARKS, EQUIPMENT_CATALOG } from '../../data/mockData.ts';
 import { HoldToConfirmButton } from '../Booking/HoldToConfirmButton.tsx';
 import { LeafletMap } from '../Map/LeafletMap.tsx';
-import { HospitalMatchingPanel } from '../Hospitals/HospitalMatchingPanel.tsx';
+import { EmergencyTriageForm } from '../Booking/EmergencyTriageForm.tsx';
 import { FloatingAIAssistant } from '../AI/FloatingAIAssistant.tsx';
 import { DoctorTreatmentCard } from '../Booking/DoctorTreatmentCard.tsx';
 import { DocumentManagementPanel } from '../Documents/DocumentManagementPanel.tsx';
@@ -65,7 +66,11 @@ interface UserDashboardProps {
   activeBooking: Booking | null;
   assignedAmbulance: AmbulanceUnit | null;
   bookingHistory: Booking[];
-  onSubmitBooking: (equipmentIds: string[], notes: string, bookingType?: 'emergency_hold' | 'manual') => void;
+  onSubmitBooking: (
+    equipmentOrData: string[] | BookingSubmissionData,
+    notes?: string,
+    bookingType?: 'emergency_hold' | 'manual'
+  ) => void;
   onCancelActiveBooking: (id: string) => void;
   patientProfile: PatientProfile;
   onOpenUploadModal: (category: 'id_card' | 'insurance' | 'medical_history' | 'incident_photo') => void;
@@ -124,6 +129,21 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
   const [activeTab, setActiveTab] = useState<'dispatch' | 'history' | 'medical_id'>('dispatch');
   const [isManualBookingOpen, setIsManualBookingOpen] = useState(false);
 
+  // Unified Emergency Triage & Contact details
+  const [triageData, setTriageData] = useState<BookingSubmissionData>({
+    bookingFor: 'self',
+    patientName: patientProfile.name || 'Aarav Sharma',
+    patientPhone: patientProfile.phone || '+91 98101 23456',
+    patientEmail: patientProfile.email || 'aarav.sharma@example.com',
+    bloodGroup: patientProfile.bloodType || 'B+',
+    relationship: 'Self',
+    callerName: patientProfile.name || 'Aarav Sharma',
+    callerPhone: patientProfile.phone || '+91 98101 23456',
+    equipmentIds: ['eq-als', 'eq-cardiac'],
+    notes: 'Patient reporting acute chest tightness and lightheadedness.',
+    bookingType: 'emergency_hold',
+  });
+
   // Filter landmarks by search
   const filteredLandmarks = addressSearch
     ? LANDMARKS.filter(
@@ -150,13 +170,29 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
 
   // Called when 5-second hold completes
   const handleEmergencyHoldConfirm = () => {
-    onSubmitBooking(selectedEquipment, emergencyNotes, 'emergency_hold');
+    onSubmitBooking({
+      ...triageData,
+      patientName: triageData.patientName.trim() || patientProfile.name || 'Emergency Patient',
+      patientPhone: triageData.patientPhone.trim() || patientProfile.phone || '+91 98101 23456',
+      equipmentIds: selectedEquipment,
+      notes: emergencyNotes,
+      bookingType: 'emergency_hold',
+      issueCategory: selectedCategory,
+    });
   };
 
   // Called when manual booking form is submitted
   const handleManualFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmitBooking(selectedEquipment, emergencyNotes, 'manual');
+    onSubmitBooking({
+      ...triageData,
+      patientName: triageData.patientName.trim() || patientProfile.name || 'Emergency Patient',
+      patientPhone: triageData.patientPhone.trim() || patientProfile.phone || '+91 98101 23456',
+      equipmentIds: selectedEquipment,
+      notes: emergencyNotes,
+      bookingType: 'manual',
+      issueCategory: selectedCategory,
+    });
   };
 
   return (
@@ -577,18 +613,6 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
           ) : (
             /* --- HOMEPAGE (ZERO MAP, PROFESSIONAL & FOCUSED ON AMBULANCE BOOKING) --- */
             <div className="space-y-6 animate-in fade-in duration-200">
-              {/* Intelligent Hospital Matching Panel (Emergency Category & Road ETA) */}
-              <HospitalMatchingPanel
-                pickupCoords={currentPickup.coords}
-                currentDestinationId={currentDropoff.hospitalId}
-                hospitals={hospitals}
-                selectedCategory={selectedCategory}
-                onSelectCategory={(cat) => onSelectCategory && onSelectCategory(cat)}
-                onSelectHospital={(hosp) =>
-                  onDropoffChange({ lat: hosp.lat, lng: hosp.lng }, `${hosp.name}, ${hosp.address}`, hosp.id)
-                }
-              />
-
               {/* 1. HOMEPAGE RED EMERGENCY BOOKING HERO & 2. MANUAL BOOKING BUTTON */}
               <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-sm text-center relative overflow-hidden">
                 {/* Ambient Background Gradient Accent */}
@@ -694,7 +718,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                         <span>Manual Booking Configuration</span>
                       </h3>
                       <p className="text-xs text-slate-500 mt-0.5">
-                        Customize your pickup, destination hospital, required equipment, and patient notes.
+                        Customize patient details, pickup, destination hospital, required equipment, and clinical notes.
                       </p>
                     </div>
                     <button
@@ -705,6 +729,15 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                       Collapse Panel
                     </button>
                   </div>
+
+                  {/* Patient Triage & Details inside Manual Configuration */}
+                  <EmergencyTriageForm
+                    patientProfile={patientProfile}
+                    bookingData={triageData}
+                    onChangeBookingData={(updated) =>
+                      setTriageData((prev) => ({ ...prev, ...updated }))
+                    }
+                  />
 
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                     {/* Left 7 Columns: Route & Destination Selection */}

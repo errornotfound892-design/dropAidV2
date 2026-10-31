@@ -10,7 +10,8 @@ import {
   Hospital,
   SimulationState,
   EmergencyCategory,
-  HospitalDoctor
+  HospitalDoctor,
+  BookingSubmissionData
 } from './types/index.ts';
 import {
   HOSPITALS,
@@ -122,6 +123,7 @@ export default function App() {
   const [dispatchCountdown, setDispatchCountdown] = useState<number | null>(null);
   const dispatchCountdownRef = useRef<NodeJS.Timeout | null>(null);
   const movementIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const activeTransitionsRef = useRef<Set<string>>(new Set());
 
   // 4. Modals State
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -175,11 +177,45 @@ export default function App() {
             if (localActive && !serverMap.has(localActive.id)) {
               serverMap.set(localActive.id, localActive);
             }
+
+            const STAGE_WEIGHT: Record<TripStage, number> = {
+              pending: 0,
+              accepted: 1,
+              en_route_pickup: 2,
+              on_scene: 3,
+              transporting: 4,
+              at_hospital: 5,
+              completed: 6,
+              cancelled: 6,
+            };
+
             return Array.from(serverMap.values()).map((sb) => {
               const localMatch = prev.find((p) => p.id === sb.id);
-              if (localMatch && ['en_route_pickup', 'transporting'].includes(localMatch.stage)) {
+              if (!localMatch) return sb;
+
+              const localWeight = STAGE_WEIGHT[localMatch.stage] ?? 0;
+              const serverWeight = STAGE_WEIGHT[sb.stage] ?? 0;
+
+              // If local stage has progressed further than server polling state, protect local progression!
+              if (localWeight > serverWeight) {
                 return {
                   ...sb,
+                  stage: localMatch.stage,
+                  routePolyline: localMatch.routePolyline?.length ? localMatch.routePolyline : sb.routePolyline,
+                  currentVehiclePosition: localMatch.currentVehiclePosition || sb.currentVehiclePosition,
+                  currentWaypointIndex: localMatch.currentWaypointIndex ?? sb.currentWaypointIndex,
+                  distanceKm: localMatch.distanceKm ?? sb.distanceKm,
+                  etaMinutes: localMatch.etaMinutes ?? sb.etaMinutes,
+                  statusHistory: localMatch.statusHistory || sb.statusHistory,
+                  stageTimestamps: localMatch.stageTimestamps || sb.stageTimestamps,
+                };
+              }
+
+              // If at the same active transit stage, retain smooth vehicle coordinate interpolation
+              if (localWeight === serverWeight && ['en_route_pickup', 'on_scene', 'transporting', 'at_hospital'].includes(localMatch.stage)) {
+                return {
+                  ...sb,
+                  stage: localMatch.stage,
                   currentVehiclePosition: localMatch.currentVehiclePosition || sb.currentVehiclePosition,
                   currentWaypointIndex: localMatch.currentWaypointIndex ?? sb.currentWaypointIndex,
                   distanceKm: localMatch.distanceKm ?? sb.distanceKm,
@@ -187,6 +223,7 @@ export default function App() {
                   routePolyline: localMatch.routePolyline?.length ? localMatch.routePolyline : sb.routePolyline,
                 };
               }
+
               return sb;
             });
           });
@@ -195,12 +232,14 @@ export default function App() {
           setAmbulances((prev) =>
             data.ambulances.map((sa: AmbulanceUnit) => {
               const localMatch = prev.find((la) => la.id === sa.id);
-              if (localMatch && ['en_route_pickup', 'transporting'].includes(localMatch.status)) {
+              if (localMatch && ['en_route_pickup', 'on_scene', 'transporting', 'at_hospital'].includes(localMatch.status)) {
                 return {
                   ...sa,
+                  status: localMatch.status,
                   location: localMatch.location,
                   heading: localMatch.heading,
                   speedKmH: localMatch.speedKmH,
+                  currentBookingId: localMatch.currentBookingId ?? sa.currentBookingId,
                 };
               }
               return sa;
@@ -300,7 +339,7 @@ export default function App() {
   useEffect(() => {
     const isTransitStage = (stage: TripStage) => stage === 'en_route_pickup' || stage === 'transporting';
 
-    movementIntervalRef.current = setInterval(async () => {
+    movementIntervalRef.current = setInterval(() => {
       setBookings((prevBookings) => {
         let hasChanges = false;
         const nextBookings = [...prevBookings];
@@ -318,7 +357,13 @@ export default function App() {
           if (currIdx >= totalPoints - 1) {
             // Reached destination for current route segment
             if (bk.stage === 'en_route_pickup') {
+              if (activeTransitionsRef.current.has(bk.id)) {
+                continue;
+              }
+              activeTransitionsRef.current.add(bk.id);
               hasChanges = true;
+
+              const arrivedTime = new Date().toISOString();
               nextBookings[idx] = {
                 ...bk,
                 stage: 'on_scene',
@@ -328,91 +373,118 @@ export default function App() {
                 distanceKm: 0,
                 stageTimestamps: {
                   ...bk.stageTimestamps,
-                  arrivedScene: new Date().toISOString(),
+                  arrivedScene: arrivedTime,
                 },
                 statusHistory: [
                   ...(bk.statusHistory || []),
                   {
                     stage: 'on_scene',
-                    timestamp: new Date().toISOString(),
-                    note: 'Ambulance arrived at patient scene. Paramedics initiating triage.',
+                    timestamp: arrivedTime,
+                    note: 'Ambulance arrived at patient scene. Paramedics initiating triage and boarding patient.',
                   },
                 ],
               };
 
-              // Update ambulance status to on_scene
-              setAmbulances((prevAmbs) =>
-                prevAmbs.map((a) =>
-                  a.id === bk.assignedUnitId
-                    ? { ...a, status: 'on_scene', location: { ...bk.pickupCoords }, speedKmH: 0 }
-                    : a
-                )
-              );
-
-              // Phase 2: Recalculate route to hospital ER and advance to transporting
               const targetBkId = bk.id;
               const unitId = bk.assignedUnitId;
               const pickupPos = bk.pickupCoords;
               const dropoffPos = bk.dropoffCoords;
+              const dropoffAddr = bk.dropoffAddress;
 
-              setTimeout(async () => {
-                try {
-                  const hospRoute = await getDrivingRoute(pickupPos, dropoffPos);
-                  setBookings((latest) =>
-                    latest.map((b) =>
-                      b.id === targetBkId && b.stage === 'on_scene'
-                        ? {
-                            ...b,
-                            stage: 'transporting',
-                            routePolyline: hospRoute.polyline,
-                            currentWaypointIndex: 0,
-                            currentVehiclePosition: hospRoute.polyline[0] || [pickupPos.lat, pickupPos.lng],
-                            distanceKm: hospRoute.distanceKm,
-                            etaMinutes: hospRoute.etaMinutes,
-                            stageTimestamps: {
-                              ...b.stageTimestamps,
-                              departedScene: new Date().toISOString(),
-                            },
-                            statusHistory: [
-                              ...(b.statusHistory || []),
-                              {
-                                stage: 'transporting',
-                                timestamp: new Date().toISOString(),
-                                note: `Patient loaded. En route to ${b.dropoffAddress.split(',')[0]} ER bay.`,
+              // Synchronize ambulance status on scene
+              setAmbulances((prevAmbs) =>
+                prevAmbs.map((a) =>
+                  a.id === unitId
+                    ? { ...a, status: 'on_scene', location: { ...pickupPos }, speedKmH: 0 }
+                    : a
+                )
+              );
+
+              // 1. Immediately report on_scene stage to server
+              fetch(`/api/bookings/${targetBkId}/stage`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  stage: 'on_scene',
+                  assignedUnitId: unitId,
+                  isOperator: true,
+                }),
+              }).catch(() => {});
+
+              // 2. Compute true road route from patient pickup to selected hospital
+              getDrivingRoute(pickupPos, dropoffPos)
+                .then((hospRoute) => {
+                  // Allow 2.5s for realistic patient triage & boarding into ambulance
+                  setTimeout(() => {
+                    const departedTime = new Date().toISOString();
+                    setBookings((latest) =>
+                      latest.map((b) =>
+                        b.id === targetBkId
+                          ? {
+                              ...b,
+                              stage: 'transporting',
+                              routePolyline: hospRoute.polyline,
+                              currentWaypointIndex: 0,
+                              currentVehiclePosition: hospRoute.polyline[0] || [pickupPos.lat, pickupPos.lng],
+                              distanceKm: hospRoute.distanceKm,
+                              etaMinutes: hospRoute.etaMinutes,
+                              stageTimestamps: {
+                                ...b.stageTimestamps,
+                                departedScene: departedTime,
                               },
-                            ],
-                          }
-                        : b
-                    )
-                  );
+                              statusHistory: [
+                                ...(b.statusHistory || []),
+                                {
+                                  stage: 'transporting',
+                                  timestamp: departedTime,
+                                  note: `Patient loaded into ambulance. En route to ${dropoffAddr.split(',')[0]} emergency trauma bay.`,
+                                },
+                              ],
+                            }
+                          : b
+                      )
+                    );
 
-                  setAmbulances((latestAmbs) =>
-                    latestAmbs.map((a) =>
-                      a.id === unitId
-                        ? { ...a, status: 'transporting', speedKmH: 52 }
-                        : a
-                    )
-                  );
+                    // Update ambulance to transporting
+                    setAmbulances((latestAmbs) =>
+                      latestAmbs.map((a) =>
+                        a.id === unitId
+                          ? { ...a, status: 'transporting', speedKmH: 52 }
+                          : a
+                      )
+                    );
 
-                  fetch(`/api/bookings/${targetBkId}/stage`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      stage: 'transporting',
-                      assignedUnitId: unitId,
-                      routePolyline: hospRoute.polyline,
-                      distanceKm: hospRoute.distanceKm,
-                      etaMinutes: hospRoute.etaMinutes,
-                      isOperator: true,
-                    }),
-                  }).catch(() => {});
-                } catch (err) {
-                  console.warn('Failed to calculate hospital route after scene:', err);
-                }
-              }, 3500);
+                    // Sync transporting stage to server with hospital road polyline
+                    fetch(`/api/bookings/${targetBkId}/stage`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        stage: 'transporting',
+                        assignedUnitId: unitId,
+                        routePolyline: hospRoute.polyline,
+                        distanceKm: hospRoute.distanceKm,
+                        etaMinutes: hospRoute.etaMinutes,
+                        isOperator: true,
+                      }),
+                    }).catch(() => {});
+
+                    // Unlock transitions for next phase (hospital arrival)
+                    activeTransitionsRef.current.delete(targetBkId);
+                  }, 2500);
+                })
+                .catch((err) => {
+                  console.warn('Failed to calculate road route to hospital:', err);
+                  activeTransitionsRef.current.delete(targetBkId);
+                });
 
             } else if (bk.stage === 'transporting') {
+              if (activeTransitionsRef.current.has(bk.id)) {
+                continue;
+              }
+              activeTransitionsRef.current.add(bk.id);
               hasChanges = true;
+
+              const arrivedHospTime = new Date().toISOString();
               nextBookings[idx] = {
                 ...bk,
                 stage: 'at_hospital',
@@ -422,46 +494,59 @@ export default function App() {
                 distanceKm: 0,
                 stageTimestamps: {
                   ...bk.stageTimestamps,
-                  arrivedHospital: new Date().toISOString(),
+                  arrivedHospital: arrivedHospTime,
                 },
                 statusHistory: [
                   ...(bk.statusHistory || []),
                   {
                     stage: 'at_hospital',
-                    timestamp: new Date().toISOString(),
-                    note: 'Arrived at Hospital Emergency Bay. Handing off patient to trauma team.',
+                    timestamp: arrivedHospTime,
+                    note: 'Arrived at Hospital Emergency Bay. Handing off patient to trauma resuscitation team.',
                   },
                 ],
               };
 
+              const targetBkId = bk.id;
+              const unitId = bk.assignedUnitId;
+
               setAmbulances((prevAmbs) =>
                 prevAmbs.map((a) =>
-                  a.id === bk.assignedUnitId
+                  a.id === unitId
                     ? { ...a, status: 'at_hospital', location: { ...bk.dropoffCoords }, speedKmH: 0 }
                     : a
                 )
               );
 
-              // Complete trip after 4s ER handoff
-              const targetBkId = bk.id;
-              const unitId = bk.assignedUnitId;
+              // 1. Immediately report at_hospital stage to server
+              fetch(`/api/bookings/${targetBkId}/stage`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  stage: 'at_hospital',
+                  assignedUnitId: unitId,
+                  isOperator: true,
+                }),
+              }).catch(() => {});
+
+              // 2. Complete transfer after 4.5 seconds clinical reception
               setTimeout(() => {
+                const completedTime = new Date().toISOString();
                 setBookings((latest) =>
                   latest.map((b) =>
-                    b.id === targetBkId && b.stage === 'at_hospital'
+                    b.id === targetBkId
                       ? {
                           ...b,
                           stage: 'completed',
                           stageTimestamps: {
                             ...b.stageTimestamps,
-                            completed: new Date().toISOString(),
+                            completed: completedTime,
                           },
                           statusHistory: [
                             ...(b.statusHistory || []),
                             {
                               stage: 'completed',
-                              timestamp: new Date().toISOString(),
-                              note: 'Emergency transfer completed. Ambulance disinfected and returned to base bay.',
+                              timestamp: completedTime,
+                              note: 'Emergency transfer completed. Unit disinfected and returned to base bay.',
                             },
                           ],
                         }
@@ -489,12 +574,15 @@ export default function App() {
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ stage: 'completed', isOperator: true }),
                 }).catch(() => {});
-              }, 4000);
+
+                activeTransitionsRef.current.delete(targetBkId);
+              }, 4500);
             }
           } else {
-            // Step forward along road route
+            // Step forward along road route with realistic responsive progress
             hasChanges = true;
-            const nextIdx = Math.min(currIdx + 1, totalPoints - 1);
+            const step = Math.max(1, Math.min(3, Math.ceil(totalPoints / 60)));
+            const nextIdx = Math.min(currIdx + step, totalPoints - 1);
             const currPoint = polyline[currIdx];
             const nextPoint = polyline[nextIdx];
             const heading = calculateBearing(
@@ -510,7 +598,7 @@ export default function App() {
                 { lat: polyline[p + 1][0], lng: polyline[p + 1][1] }
               );
             }
-            const remainingMins = Math.max(1, Math.round((remainingKm / 45) * 60));
+            const remainingMins = Math.max(1, Math.round((remainingKm / 48) * 60));
 
             nextBookings[idx] = {
               ...bk,
@@ -615,11 +703,11 @@ export default function App() {
   };
 
   // CREATE EMERGENCY BOOKING (Hold 5s or Manual Form)
-  // WITH AUTONOMOUS PROXIMITY DISPATCH
+  // WITH AUTONOMOUS PROXIMITY DISPATCH & BACKEND AUTOMATION
   const handleCreateBooking = async (
-    equipmentIds: string[],
-    notes: string,
-    bookingType: 'emergency_hold' | 'manual' = 'emergency_hold'
+    equipmentOrData: string[] | BookingSubmissionData,
+    maybeNotes?: string,
+    maybeBookingType: 'emergency_hold' | 'manual' = 'emergency_hold'
   ) => {
     if (isSubmittingRef.current) return;
     if (activeBooking && activeBooking.stage !== 'completed' && activeBooking.stage !== 'cancelled') {
@@ -630,8 +718,28 @@ export default function App() {
     isSubmittingRef.current = true;
     setIsSubmitting(true);
 
+    const isSubmissionData = !Array.isArray(equipmentOrData) && typeof equipmentOrData === 'object';
+    const subData: Partial<BookingSubmissionData> = isSubmissionData ? equipmentOrData : {};
+    const equipmentIds = isSubmissionData ? (subData.equipmentIds || ['eq-als', 'eq-cardiac']) : (equipmentOrData as string[]);
+    const notes = isSubmissionData ? (subData.notes || '') : (maybeNotes || '');
+    const bookingType = isSubmissionData ? (subData.bookingType || 'emergency_hold') : maybeBookingType;
+
+    const patientName = subData.patientName?.trim() || patientProfile.name || 'Emergency Patient';
+    const patientPhone = subData.patientPhone?.trim() || patientProfile.phone || '+91 98101 23456';
+    const patientEmail = subData.patientEmail || patientProfile.email || undefined;
+    const bloodGroup = subData.bloodGroup || patientProfile.bloodType || undefined;
+    const bookingFor = subData.bookingFor || 'self';
+    const relationship = subData.relationship;
+    const callerName = subData.callerName;
+    const callerPhone = subData.callerPhone;
+    const patientPhotoUrl = subData.patientPhotoUrl;
+    const patientPhotoPublicId = subData.patientPhotoPublicId;
+    const photoConsentGiven = subData.photoConsentGiven;
+    const effectiveCategory = subData.issueCategory || selectedCategory;
+
     const newBookingId = `bk-${Date.now()}`;
     const trackingCode = `DA-${Math.floor(1000 + Math.random() * 9000)}`;
+    const caseAccessKey = Math.random().toString(36).substring(2, 10);
 
     // Autonomous Proximity Dispatch: identify nearest available ambulance
     const nearestResult = findNearestAvailableAmbulance(pickup.coords, ambulances);
@@ -675,8 +783,18 @@ export default function App() {
       id: newBookingId,
       trackingCode,
       createdAt: nowIso,
-      patientName: patientProfile.name,
-      patientPhone: patientProfile.phone,
+      patientName,
+      patientPhone,
+      patientEmail,
+      bloodGroup,
+      bookingFor,
+      relationship,
+      callerName,
+      callerPhone,
+      patientPhotoUrl,
+      patientPhotoPublicId,
+      photoConsentGiven,
+      caseAccessKey,
       patientNotes: `${bookingType === 'emergency_hold' ? '[5s Hold Emergency] ' : '[Manual Assisted] '}${notes}`,
       pickupAddress: pickup.address,
       pickupCoords: { ...pickup.coords },
@@ -697,15 +815,16 @@ export default function App() {
         ...(assigned ? { accepted: nowIso, dispatched: nowIso } : {}),
       },
       isSimulated: false,
-      issueCategory: selectedCategory,
+      issueCategory: effectiveCategory,
       confirmedDoctor: defaultDoctor,
       isDoctorConfirmedByHospital: false, // Displays "Awaiting hospital confirmation" until hospital signs off
       treatmentTeam: destHospital?.treatmentTeam,
       treatmentProcedure: destHospital?.primaryProcedures?.[0],
       preArrivalAlertSent: false,
       preArrivalConsentGiven: false,
+      telegramNotificationStatus: 'pending',
       statusHistory: [
-        { stage: 'pending', timestamp: nowIso, note: 'Emergency dispatch requested' },
+        { stage: 'pending', timestamp: nowIso, note: `Emergency dispatch requested (${bookingFor === 'someone_else' ? `For ${relationship || 'other'}` : 'Self'})` },
         ...(assigned
           ? [
               {
@@ -733,9 +852,9 @@ export default function App() {
       );
     }
 
-    // Sync to Backend API
+    // Sync to Backend API with Telegram & Database Persistence
     try {
-      await fetch('/api/bookings', {
+      const res = await fetch('/api/bookings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -743,8 +862,18 @@ export default function App() {
           trackingCode,
           assignedUnitId,
           routePolyline: initialPolyline,
-          patientName: patientProfile.name,
-          patientPhone: patientProfile.phone,
+          patientName,
+          patientPhone,
+          patientEmail,
+          bloodGroup,
+          bookingFor,
+          relationship,
+          callerName,
+          callerPhone,
+          patientPhotoUrl,
+          patientPhotoPublicId,
+          photoConsentGiven,
+          caseAccessKey,
           patientNotes: notes,
           pickupAddress: pickup.address,
           pickupCoords: pickup.coords,
@@ -753,9 +882,15 @@ export default function App() {
           destinationHospitalId: dropoff.hospitalId,
           equipmentRequested: equipmentIds,
           bookingType,
-          issueCategory: selectedCategory,
+          issueCategory: effectiveCategory,
         }),
       });
+      const data = await res.json();
+      if (data.success && data.booking) {
+        setBookings((prev) =>
+          prev.map((b) => (b.id === newBookingId ? { ...b, ...data.booking } : b))
+        );
+      }
     } catch (apiErr) {
       console.warn('Backend API booking network glitch, preserved in state:', apiErr);
     } finally {

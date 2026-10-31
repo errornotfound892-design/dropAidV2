@@ -9,6 +9,23 @@ import { HOSPITALS, LANDMARKS, INITIAL_AMBULANCES, INITIAL_PATIENT } from './src
 import { findNearestAvailableAmbulance, getDrivingRoute } from './src/services/routingService.ts';
 import { getRecommendedHospital } from './src/services/hospitalMatcher.ts';
 import { SimulationState, Booking, AmbulanceUnit, Hospital, TripStage, PatientProfile, EmergencyCategory, BookingDocument } from './src/types/index.ts';
+import {
+  initDatabase,
+  getAllBookings,
+  getBookingById,
+  saveBooking,
+  updateBooking,
+  logAuditEvent,
+  getAuditEvents,
+  linkTelegramChat,
+  getLinkedTelegramChat
+} from './src/services/dbStore.ts';
+import {
+  sendTelegramDispatchNotification,
+  generateSecureCaseLink,
+  isTelegramLiveConfigured,
+  getTelegramConfig
+} from './src/services/telegramService.ts';
 
 dotenv.config();
 
@@ -21,10 +38,13 @@ const PORT = 3000;
 // Middleware for parsing JSON with generous limit for image data
 app.use(express.json({ limit: '35mb' }));
 
-// Server-side in-memory mutable store for real-time synchronization
+// Initialize persistent database
+const dbState = initDatabase();
+
+// Server-side mutable store initialized from persistent database
 let serverHospitals: Hospital[] = JSON.parse(JSON.stringify(HOSPITALS));
 let serverAmbulances: AmbulanceUnit[] = JSON.parse(JSON.stringify(INITIAL_AMBULANCES));
-let serverBookings: Booking[] = [];
+let serverBookings: Booking[] = dbState.bookings || [];
 let serverProfile: PatientProfile = JSON.parse(JSON.stringify(INITIAL_PATIENT));
 let sharedPlatformState: any = null;
 
@@ -551,12 +571,23 @@ app.get('/api/bookings', (_req: Request, res: Response) => {
   });
 });
 
-// Create Booking with AUTOMATIC DISPATCH
+// Create Booking with AUTOMATIC DISPATCH, TELEGRAM NOTIFICATIONS, & PERSISTENT DB
 app.post('/api/bookings', async (req: Request, res: Response) => {
   try {
     const {
       patientName = 'Aarav Malhotra',
       patientPhone = '+91 98765 43210',
+      patientEmail,
+      bloodGroup,
+      bookingFor = 'self',
+      relationship,
+      callerName,
+      callerPhone,
+      patientPhotoUrl,
+      patientPhotoPublicId,
+      photoConsentGiven,
+      caseAccessKey: providedKey,
+      telegramChatId,
       patientNotes = 'Immediate emergency dispatch requested',
       pickupAddress,
       pickupCoords,
@@ -565,6 +596,7 @@ app.post('/api/bookings', async (req: Request, res: Response) => {
       destinationHospitalId,
       equipmentRequested = ['eq-als', 'eq-cardiac'],
       bookingType = 'emergency_hold',
+      issueCategory = 'general',
     } = req.body;
 
     if (!pickupCoords || typeof pickupCoords.lat !== 'number' || typeof pickupCoords.lng !== 'number') {
@@ -577,6 +609,7 @@ app.post('/api/bookings', async (req: Request, res: Response) => {
 
     const bookingId = req.body.id || `bk-${Date.now()}`;
     const trackingCode = req.body.trackingCode || `DA-${Math.floor(1000 + Math.random() * 9000)}`;
+    const caseAccessKey = providedKey || crypto.randomBytes(6).toString('hex');
 
     // AUTOMATIC DISPATCH ENGINE:
     // Automatically find nearest available ambulance using proximity
@@ -636,10 +669,21 @@ app.post('/api/bookings', async (req: Request, res: Response) => {
       id: bookingId,
       trackingCode,
       createdAt: nowIso,
-      patientName,
-      patientPhone,
+      patientName: patientName.trim() || 'Emergency Patient',
+      patientPhone: patientPhone.trim() || '+91 98101 23456',
+      patientEmail,
+      bloodGroup,
+      bookingFor,
+      relationship,
+      callerName,
+      callerPhone,
+      patientPhotoUrl,
+      patientPhotoPublicId,
+      photoConsentGiven,
+      caseAccessKey,
+      telegramChatId,
       patientNotes: `${bookingType === 'emergency_hold' ? '[Quick 5s Hold Dispatch] ' : '[Manual Assisted Booking] '}${patientNotes}`,
-      issueCategory: (req.body.issueCategory as EmergencyCategory) || 'general',
+      issueCategory: (issueCategory as EmergencyCategory) || 'general',
       pickupAddress: pickupAddress || `GPS Location (${pickupCoords.lat.toFixed(4)}, ${pickupCoords.lng.toFixed(4)})`,
       pickupCoords,
       dropoffAddress: dropoffAddress || 'Nearest Verified Hospital ER',
@@ -665,8 +709,13 @@ app.post('/api/bookings', async (req: Request, res: Response) => {
         ...(assigned ? { accepted: nowIso, dispatched: nowIso } : {}),
       },
       isSimulated: false,
+      telegramNotificationStatus: 'pending',
       statusHistory: [
-        { stage: 'pending', timestamp: nowIso, note: 'Emergency dispatch request registered' },
+        {
+          stage: 'pending',
+          timestamp: nowIso,
+          note: `Emergency dispatch request registered (${bookingFor === 'someone_else' ? `Booked for ${relationship || 'Third-Party'}` : 'Self'})`,
+        },
         ...(assigned
           ? [
               {
@@ -679,12 +728,55 @@ app.post('/api/bookings', async (req: Request, res: Response) => {
       ],
     };
 
-    serverBookings = [newBooking, ...serverBookings];
+    // 1. Save to in-memory and persistent JSON database
+    serverBookings = [newBooking, ...serverBookings.filter((b) => b.id !== bookingId)];
+    saveBooking(newBooking);
+
+    // 2. Record persistent audit log event
+    logAuditEvent(
+      'BOOKING_CREATED',
+      'patient',
+      `Booking ${trackingCode} registered via ${bookingType} (${bookingFor === 'someone_else' ? `for ${relationship || 'third-party'}` : 'self'}). Nearest unit: ${assigned ? assigned.callSign : 'searching'}`,
+      bookingId,
+      { patientName, patientPhone, bookingFor, issueCategory, assignedUnit: assigned?.callSign }
+    );
+
+    // 3. Telegram Operations & Patient Notifications
+    let tgResult: any = { success: true, isSimulated: true };
+    try {
+      // Send notification to configured operations channel
+      tgResult = await sendTelegramDispatchNotification(newBooking);
+
+      // Check if patient has a verified telegram chat ID
+      const patientChat = telegramChatId || getLinkedTelegramChat(patientPhone) || getLinkedTelegramChat(trackingCode);
+      if (patientChat) {
+        await sendTelegramDispatchNotification(newBooking, patientChat, true);
+      }
+
+      newBooking.telegramNotificationStatus = tgResult.isSimulated
+        ? 'simulated'
+        : tgResult.success
+        ? 'sent'
+        : 'failed';
+
+      updateBooking(bookingId, { telegramNotificationStatus: newBooking.telegramNotificationStatus });
+    } catch (tgErr) {
+      console.warn('[Telegram Dispatch] Error delivering alert:', tgErr);
+      newBooking.telegramNotificationStatus = 'failed';
+    }
+
+    const secureCaseLink = generateSecureCaseLink(newBooking);
 
     return res.status(201).json({
       success: true,
       booking: newBooking,
       assignedAmbulance: assigned,
+      caseLink: secureCaseLink,
+      telegramStatus: {
+        status: newBooking.telegramNotificationStatus,
+        isSimulated: tgResult.isSimulated,
+        liveConfigured: isTelegramLiveConfigured(),
+      },
       message: assigned
         ? `Emergency unit auto-dispatched! Ambulance ${assigned.callSign} is en route (ETA ~${etaMinutes} mins).`
         : `Emergency request registered. Searching Delhi NCR fleet for next available unit.`,
@@ -714,6 +806,7 @@ app.post('/api/bookings/:id/stage', (req: Request, res: Response) => {
     }
   }
 
+  let updatedBooking: Booking | null = null;
   serverBookings = serverBookings.map((b) => {
     if (b.id === id) {
       const updated = {
@@ -728,22 +821,62 @@ app.post('/api/bookings/:id/stage', (req: Request, res: Response) => {
           { stage, timestamp: new Date().toISOString(), note: `Stage transitioned to ${stage}` },
         ],
       };
+      updatedBooking = updated;
       return updated;
     }
     return b;
   });
 
-  // If completed or cancelled, return vehicle to base and free the vehicle
-  if (stage === 'completed' || stage === 'cancelled') {
-    const bk = serverBookings.find((b) => b.id === id);
-    if (bk && bk.assignedUnitId) {
+  if (updatedBooking) {
+    updateBooking(id, updatedBooking);
+    logAuditEvent('STAGE_TRANSITION', isOperator ? 'operator' : 'system', `Trip stage changed to ${stage}`, id, { stage, assignedUnitId });
+  }
+
+  // Synchronize ambulance status with booking stage
+  const bk = serverBookings.find((b) => b.id === id);
+  const targetUnitId = assignedUnitId || bk?.assignedUnitId;
+
+  if (targetUnitId) {
+    if (stage === 'completed' || stage === 'cancelled') {
       serverAmbulances = serverAmbulances.map((a) =>
-        a.id === bk.assignedUnitId
+        a.id === targetUnitId
           ? {
               ...a,
               location: { ...a.baseLocation },
               status: 'available' as const,
               currentBookingId: undefined,
+              speedKmH: 0,
+            }
+          : a
+      );
+    } else if (stage === 'on_scene') {
+      serverAmbulances = serverAmbulances.map((a) =>
+        a.id === targetUnitId
+          ? {
+              ...a,
+              status: 'on_scene' as const,
+              location: bk ? { ...bk.pickupCoords } : a.location,
+              speedKmH: 0,
+            }
+          : a
+      );
+    } else if (stage === 'transporting') {
+      serverAmbulances = serverAmbulances.map((a) =>
+        a.id === targetUnitId
+          ? {
+              ...a,
+              status: 'transporting' as const,
+              speedKmH: 52,
+            }
+          : a
+      );
+    } else if (stage === 'at_hospital') {
+      serverAmbulances = serverAmbulances.map((a) =>
+        a.id === targetUnitId
+          ? {
+              ...a,
+              status: 'at_hospital' as const,
+              location: bk ? { ...bk.dropoffCoords } : a.location,
               speedKmH: 0,
             }
           : a
@@ -797,27 +930,36 @@ app.post('/api/bookings/:id/assign', async (req: Request, res: Response) => {
       : a
   );
 
-  serverBookings = serverBookings.map((b) =>
-    b.id === id
-      ? {
-          ...b,
-          assignedUnitId: unitId,
-          stage: b.stage === 'pending' ? 'en_route_pickup' : b.stage,
-          routePolyline: newPolyline,
-          distanceKm: newDist,
-          etaMinutes: newEta,
-          currentVehiclePosition: [newUnit.location.lat, newUnit.location.lng],
-          statusHistory: [
-            ...(b.statusHistory || []),
-            {
-              stage: b.stage,
-              timestamp: new Date().toISOString(),
-              note: `Operator override: unit reassigned to ${newUnit.callSign} (Driver: ${newUnit.driverName})`,
-            },
-          ],
-        }
-      : b
-  );
+  let updatedBk: Booking | null = null;
+  serverBookings = serverBookings.map((b) => {
+    if (b.id === id) {
+      const updated = {
+        ...b,
+        assignedUnitId: unitId,
+        stage: b.stage === 'pending' ? 'en_route_pickup' : b.stage,
+        routePolyline: newPolyline,
+        distanceKm: newDist,
+        etaMinutes: newEta,
+        currentVehiclePosition: [newUnit.location.lat, newUnit.location.lng] as [number, number],
+        statusHistory: [
+          ...(b.statusHistory || []),
+          {
+            stage: b.stage,
+            timestamp: new Date().toISOString(),
+            note: `Operator override: unit reassigned to ${newUnit.callSign} (Driver: ${newUnit.driverName})`,
+          },
+        ],
+      };
+      updatedBk = updated;
+      return updated;
+    }
+    return b;
+  });
+
+  if (updatedBk) {
+    updateBooking(id, updatedBk);
+    logAuditEvent('UNIT_REASSIGNED', 'operator', `Operator override unit to ${newUnit.callSign}`, id, { unitId, callSign: newUnit.callSign });
+  }
 
   res.json({ success: true, message: `Unit override confirmed. Assigned to ${newUnit.callSign}` });
 });
@@ -828,10 +970,11 @@ app.post('/api/bookings/:id/reroute', (req: Request, res: Response) => {
   const { dropoffCoords, dropoffAddress, hospitalId, routePolyline, distanceKm, etaMinutes } = req.body;
 
   let found = false;
+  let updatedBk: Booking | null = null;
   serverBookings = serverBookings.map((b) => {
     if (b.id === id) {
       found = true;
-      return {
+      const updated = {
         ...b,
         ...(dropoffCoords ? { dropoffCoords } : {}),
         ...(dropoffAddress ? { dropoffAddress } : {}),
@@ -840,13 +983,18 @@ app.post('/api/bookings/:id/reroute', (req: Request, res: Response) => {
         ...(typeof distanceKm === 'number' ? { distanceKm } : {}),
         ...(typeof etaMinutes === 'number' ? { etaMinutes } : {}),
       };
+      updatedBk = updated;
+      return updated;
     }
     return b;
   });
 
-  if (!found) {
+  if (!found || !updatedBk) {
     return res.status(404).json({ error: 'Booking not found' });
   }
+
+  updateBooking(id, updatedBk);
+  logAuditEvent('DESTINATION_REROUTED', 'operator', `Rerouted destination to ${dropoffAddress || 'New hospital'}`, id, { hospitalId, dropoffAddress });
 
   res.json({ success: true, message: 'Operator reroute synchronized successfully.' });
 });
@@ -859,10 +1007,11 @@ app.post('/api/bookings/:id/confirm-doctor', (req: Request, res: Response) => {
   const { doctor, treatmentTeam, procedure } = req.body;
 
   let found = false;
+  let updatedBk: Booking | null = null;
   serverBookings = serverBookings.map((b) => {
     if (b.id === id) {
       found = true;
-      return {
+      const updated = {
         ...b,
         isDoctorConfirmedByHospital: true,
         ...(doctor ? { confirmedDoctor: doctor } : {}),
@@ -877,11 +1026,17 @@ app.post('/api/bookings/:id/confirm-doctor', (req: Request, res: Response) => {
           },
         ],
       };
+      updatedBk = updated;
+      return updated;
     }
     return b;
   });
 
-  if (!found) return res.status(404).json({ error: 'Booking not found' });
+  if (!found || !updatedBk) return res.status(404).json({ error: 'Booking not found' });
+
+  updateBooking(id, updatedBk);
+  logAuditEvent('DOCTOR_CONFIRMED', 'hospital', `Attending doctor confirmed: ${doctor?.name || 'Assigned'}`, id, { doctor });
+
   res.json({ success: true, message: 'Hospital doctor assignment confirmed' });
 });
 
@@ -890,10 +1045,11 @@ app.post('/api/bookings/:id/pre-arrival-alert', (req: Request, res: Response) =>
   const { patientName, bloodType, allergies, etaMinutes } = req.body;
 
   let found = false;
+  let updatedBk: Booking | null = null;
   serverBookings = serverBookings.map((b) => {
     if (b.id === id) {
       found = true;
-      return {
+      const updated = {
         ...b,
         preArrivalAlertSent: true,
         preArrivalConsentGiven: true,
@@ -907,12 +1063,69 @@ app.post('/api/bookings/:id/pre-arrival-alert', (req: Request, res: Response) =>
           },
         ],
       };
+      updatedBk = updated;
+      return updated;
     }
     return b;
   });
 
-  if (!found) return res.status(404).json({ error: 'Booking not found' });
-  res.json({ success: true, message: 'Pre-arrival notification sent to receiving hospital' });
+  if (!found || !updatedBk) return res.status(404).json({ error: 'Booking not found' });
+
+  updateBooking(id, updatedBk);
+  logAuditEvent('PRE_ARRIVAL_ALERT_SENT', 'patient', `Pre-arrival trauma alert sent with consent`, id, { bloodType, etaMinutes });
+
+  res.json({ success: true, message: 'Pre-arrival notification sent to receiving hospital', booking: updatedBk });
+});
+
+// Official Hospital Clinical Handover Endpoint
+app.post('/api/bookings/:id/hospital-handover', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { receivingDoctor, receivingBay, triageNurse, handoverNotes } = req.body;
+
+  let found = false;
+  let updatedBk: Booking | null = null;
+  const nowIso = new Date().toISOString();
+
+  serverBookings = serverBookings.map((b) => {
+    if (b.id === id) {
+      found = true;
+      const updated = {
+        ...b,
+        stage: 'at_hospital' as TripStage,
+        hospitalHandoverConfirmed: true,
+        hospitalHandoverAt: nowIso,
+        hospitalIntakeNurse: triageNurse || 'Triage Intake RN',
+        statusHistory: [
+          ...(b.statusHistory || []),
+          {
+            stage: 'at_hospital' as TripStage,
+            timestamp: nowIso,
+            note: `Hospital handover confirmed by Dr. ${receivingDoctor || 'On-Duty Trauma Lead'} at ${receivingBay || 'Resuscitation Bay'} (Intake RN: ${triageNurse || 'Triage Staff'})`,
+          },
+        ],
+      };
+      updatedBk = updated;
+      return updated;
+    }
+    return b;
+  });
+
+  if (!found || !updatedBk) return res.status(404).json({ error: 'Booking not found' });
+
+  updateBooking(id, updatedBk);
+  logAuditEvent(
+    'HOSPITAL_HANDOVER_CONFIRMED',
+    'hospital',
+    `Handover confirmed by Dr. ${receivingDoctor || 'On-Duty Lead'} at ${receivingBay || 'ER Trauma Bay'}`,
+    id,
+    { receivingDoctor, receivingBay, triageNurse, handoverNotes }
+  );
+
+  res.json({
+    success: true,
+    message: 'Hospital handover and clinical intake confirmed.',
+    booking: updatedBk,
+  });
 });
 
 app.post('/api/bookings/:id/documents', (req: Request, res: Response) => {
@@ -938,20 +1151,149 @@ app.post('/api/bookings/:id/documents', (req: Request, res: Response) => {
   };
 
   let found = false;
+  let updatedBk: Booking | null = null;
   serverBookings = serverBookings.map((b) => {
     if (b.id === id) {
       found = true;
       const updatedDocs = [documentToStore, ...(b.documents || [])];
-      return {
+      const updated = {
         ...b,
         documents: updatedDocs,
       };
+      updatedBk = updated;
+      return updated;
     }
     return b;
   });
 
-  if (!found) return res.status(404).json({ error: 'Booking not found' });
+  if (!found || !updatedBk) return res.status(404).json({ error: 'Booking not found' });
+
+  updateBooking(id, updatedBk);
+  logAuditEvent('DOCUMENT_ATTACHED', 'patient', `Medical document attached: ${documentToStore.name} (${documentToStore.type})`, id, { documentName: documentToStore.name, type: documentToStore.type });
+
   res.json({ success: true, message: 'Document attached to booking', document: documentToStore });
+});
+
+// ------------------------------------------
+// MEDICAL IMAGE ANALYSIS SERVICE
+// ------------------------------------------
+app.post('/api/medical-image/analyze', async (req: Request, res: Response) => {
+  try {
+    const { imageUrl, bookingId } = req.body;
+    if (!imageUrl) {
+      return res.status(400).json({ error: 'Valid imageUrl is required for clinical image analysis.' });
+    }
+
+    const disclaimer = '⚠️ Preliminary Visual Assessment for Clinician Review Only: Not a definitive medical diagnosis. Ordinary photographs cannot rule out internal trauma or clinical conditions. Must be verified on-scene by attending paramedics.';
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (apiKey && apiKey !== 'MY_GEMINI_API_KEY') {
+      try {
+        const ai = new GoogleGenAI();
+        let partData: any = null;
+        if (typeof imageUrl === 'string' && imageUrl.startsWith('data:')) {
+          const matches = imageUrl.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+          if (matches && matches.length === 3) {
+            partData = {
+              inlineData: {
+                mimeType: matches[1],
+                data: matches[2],
+              },
+            };
+          }
+        }
+
+        const prompt = `You are an emergency medical triage assistant assisting paramedics and ER clinicians.
+Analyze this patient/scene photo for preliminary, non-diagnostic visual observations to assist emergency paramedics with trauma preparation.
+Do NOT give a definitive medical diagnosis. Emphasize visual indicators only (e.g. skin integrity, lacerations, obvious deformities, swelling, active bleeding).
+Return strict JSON:
+{
+  "urgencyLevel": "High" | "Moderate" | "Low",
+  "visualObservations": ["observation 1", "observation 2"],
+  "emtPrecautions": ["precaution 1", "precaution 2"],
+  "summary": "Brief 1-2 sentence non-diagnostic summary"
+}`;
+
+        const contents = partData ? [partData, prompt] : [prompt, `Image URL reference: ${imageUrl}`];
+        const aiRes = await ai.models.generateContent({
+          model: 'gemini-2.5-flash',
+          contents,
+          config: {
+            responseMimeType: 'application/json',
+          },
+        });
+
+        if (aiRes.text) {
+          const parsed = JSON.parse(aiRes.text);
+          if (bookingId) {
+            logAuditEvent('IMAGE_ANALYSIS_COMPLETED', 'system', 'Preliminary AI visual triage generated for clinician review', bookingId);
+          }
+          return res.json({
+            success: true,
+            disclaimer,
+            source: 'gemini_multimodal_vision',
+            ...parsed,
+          });
+        }
+      } catch (aiErr: any) {
+        console.warn('[Medical Image Analysis] Gemini AI error, fallback to baseline:', aiErr.message);
+      }
+    }
+
+    // Baseline heuristic analysis when offline
+    return res.json({
+      success: true,
+      disclaimer,
+      source: 'clinical_heuristic_baseline',
+      urgencyLevel: 'Moderate',
+      visualObservations: [
+        'Image stored and linked to confidential case file.',
+        'Accessible via access-controlled case link to authorized clinicians only.',
+      ],
+      emtPrecautions: [
+        'Adhere to standard universal bloodborne pathogen precautions.',
+        'Perform primary ABCDE trauma survey upon arrival at patient scene.',
+      ],
+      summary: 'Patient image securely recorded. Ready for on-scene paramedic review.',
+    });
+  } catch (err: any) {
+    console.error('Image analysis error:', err);
+    res.status(500).json({ error: err.message || 'Error processing image analysis' });
+  }
+});
+
+// ------------------------------------------
+// PERSISTENT AUDIT EVENTS & TELEGRAM STATUS
+// ------------------------------------------
+app.get('/api/audit-events', (req: Request, res: Response) => {
+  const { bookingId } = req.query;
+  const events = getAuditEvents(typeof bookingId === 'string' ? bookingId : undefined);
+  res.json({ success: true, count: events.length, events });
+});
+
+app.get('/api/telegram/status', (_req: Request, res: Response) => {
+  const isLive = isTelegramLiveConfigured();
+  const config = getTelegramConfig();
+  res.json({
+    success: true,
+    isConfigured: isLive,
+    mode: isLive ? 'live_telegram_bot' : 'simulated_operations_channel',
+    botUsername: config.botUsername,
+    operationsChatConfigured: Boolean(config.operationsChatId),
+    notice: isLive
+      ? 'Live Telegram Bot is connected to operations channel.'
+      : 'Telegram integration is running in simulated mode. Configure TELEGRAM_BOT_TOKEN and TELEGRAM_OPERATIONS_CHAT_ID in environment variables for live delivery.',
+  });
+});
+
+app.post('/api/telegram/link-account', (req: Request, res: Response) => {
+  const { key, chatId, username } = req.body;
+  if (!key || !chatId) {
+    return res.status(400).json({ error: 'Both key (phone or tracking code) and chatId are required.' });
+  }
+  linkTelegramChat(key, String(chatId), username);
+  logAuditEvent('TELEGRAM_CHAT_LINKED', 'patient', `Telegram chat ID ${chatId} linked to ${key}`);
+  res.json({ success: true, message: `Telegram chat successfully linked to ${key}.` });
 });
 
 // ------------------------------------------

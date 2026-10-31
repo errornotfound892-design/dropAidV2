@@ -142,7 +142,7 @@ export const OperatorDashboard: React.FC<OperatorDashboardProps> = ({
               </span>
             </div>
             <h2 className="text-base sm:text-lg font-black tracking-tight">
-              Delhi NCR Emergency Dispatch & Telemetry Fleet
+              Fleet Operations Command Console
             </h2>
             <p className="text-xs text-slate-300">
               Live monitoring of 14 ALS, BLS, and MICU emergency units stationed across Delhi, Noida, and Haryana.

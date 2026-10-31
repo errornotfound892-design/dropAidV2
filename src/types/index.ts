@@ -165,12 +165,51 @@ export interface BookingDocument {
   isVerified?: boolean;
 }
 
+export interface BookingSubmissionData {
+  bookingFor: 'self' | 'someone_else';
+  patientName: string;
+  patientPhone: string;
+  patientEmail?: string;
+  bloodGroup?: string;
+  relationship?: string;
+  callerName?: string;
+  callerPhone?: string;
+  patientPhotoUrl?: string;
+  patientPhotoPublicId?: string;
+  photoConsentGiven?: boolean;
+  equipmentIds: string[];
+  notes: string;
+  bookingType: 'emergency_hold' | 'manual';
+  telegramChatId?: string;
+  issueCategory?: EmergencyCategory;
+}
+
+export interface AuditEvent {
+  id: string;
+  timestamp: string;
+  bookingId?: string;
+  action: string;
+  actor: 'patient' | 'system' | 'operator' | 'hospital';
+  details: string;
+  metadata?: Record<string, any>;
+}
+
 export interface Booking {
   id: string;
   trackingCode: string;
   createdAt: string;
   patientName: string;
   patientPhone: string;
+  patientEmail?: string;
+  bloodGroup?: string;
+  bookingFor?: 'self' | 'someone_else';
+  relationship?: string;
+  callerName?: string;
+  callerPhone?: string;
+  patientPhotoUrl?: string;
+  patientPhotoPublicId?: string;
+  photoConsentGiven?: boolean;
+  caseAccessKey?: string;
   patientNotes?: string;
   issueCategory?: EmergencyCategory;
   pickupAddress: string;
@@ -215,6 +254,13 @@ export interface Booking {
   preArrivalConsentGiven?: boolean;
   preArrivalSentAt?: string;
   emergencyContactShared?: boolean;
+  // Telegram & Backend Automation fields
+  telegramNotificationStatus?: 'pending' | 'sent' | 'simulated' | 'failed' | 'not_configured';
+  telegramChatId?: string;
+  telegramMessageId?: number;
+  hospitalHandoverConfirmed?: boolean;
+  hospitalHandoverAt?: string;
+  hospitalIntakeNurse?: string;
 }
 
 export interface SimulationState {
